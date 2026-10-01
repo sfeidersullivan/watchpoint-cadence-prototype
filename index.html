@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create Watchpoint — cadence prototypes</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #F3F4F7;
+    --ink: #0F1C2E;
+    --ink-2: #1F2A3C;
+    --muted: #5E6878;
+    --card: #FFFFFF;
+    --line: #E3E6EC;
+    --field-line: #C3C9D4;
+    --check: #8A94A6;
+    --blue: #2B5BD7;
+    --blue-soft: #EAF0FF;
+    --red: #B4234F;
+    --shadow: 0 1px 2px rgba(15,28,46,.06), 0 10px 32px rgba(15,28,46,.11);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--page);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  .page {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 32px;
+    padding: 40px 24px 64px;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 388px;
+  }
+  .eyebrow {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .modal {
+    width: 100%;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    border: 1px solid var(--line);
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .x {
+    border: 0;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .field { margin-bottom: 16px; }
+  fieldset.field { border: 0; padding: 0; margin: 0 0 16px; min-inline-size: 0; }
+  .label, legend.label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+    padding: 0;
+  }
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .label-row .value {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--blue);
+  }
+  .req { color: var(--red); margin-left: 2px; }
+  select, input[type="text"], input[type="date"], textarea {
+    width: 100%;
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--field-line);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+    appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%235E6878' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  textarea { min-height: 72px; resize: vertical; }
+  .hint {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+  .hint b { color: var(--ink-2); }
+  .counter {
+    text-align: right;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .btn {
+    font: inherit;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid var(--field-line);
+    background: var(--card);
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
+  }
+  .btn.primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .seg {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    background: var(--page);
+    border: 1px solid var(--field-line);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 8px 2px;
+    border-radius: 6px;
+    color: var(--muted);
+    text-align: center;
+    cursor: pointer;
+  }
+  .seg input:checked + label {
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: 0 1px 3px rgba(15,28,46,.12);
+  }
+
+  /* Bounded slider */
+  .slider {
+    position: relative;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    user-select: none;
+    touch-action: none;
+    cursor: pointer;
+    margin: 4px 0 2px;
+  }
+  .track {
+    position: absolute;
+    left: 0; right: 0;
+    height: 6px;
+    border-radius: 3px;
+    background: #E8EAEE;
+  }
+  .track-enabled {
+    position: absolute;
+    height: 6px;
+    border-radius: 3px;
+    background: #D5DAE3;
+  }
+  .track-fill {
+    position: absolute;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--blue);
+  }
+  .track-disabled {
+    position: absolute;
+    height: 6px;
+    background: var(--page);
+    border: 1px dashed var(--field-line);
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+  .thumb {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--blue);
+    border: 2px solid #fff;
+    box-sizing: border-box;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(15,28,46,.2);
+  }
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- OPTION A -->
+    <div class="col">
+      <div class="eyebrow">Option A — Sliders</div>
+      <div class="modal" id="cardA">
+        <div class="modal-head">
+          <span class="modal-title">Create Watchpoint</span>
+          <button class="x" type="button" aria-label="Close">×</button>
+        </div>
+
+        <div class="field">
+          <label class="label" for="a-entity">Entity type<span class="req">*</span></label>
+          <select id="a-entity" required>
+            <option value="">Select an entity type</option>
+            <option>Road defect</option>
+            <option>Streetlight</option>
+            <option>Signage</option>
+            <option>Graffiti</option>
+            <option>Storm drain</option>
+            <option>Illegal dumping</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="a-name">Name</label>
+          <input type="text" id="a-name" placeholder="Optional name" />
+        </div>
+
+        <div class="field" id="freq-field">
+          <div class="label-row">
+            <label class="label" style="margin:0">Attempt no less than every<span class="req">*</span></label>
+            <span class="value" id="freq-label">24 hours</span>
+          </div>
+          <div class="slider" id="freq-slider" data-kind="freq"></div>
+          <div class="ends"><span>5 min</span><span>weekly</span></div>
+          <div class="hint">Up to <b>60</b> observations per watchpoint, set for your organization.</div>
+        </div>
+
+        <div class="field" id="dur-field">
+          <div class="label-row">
+            <label class="label" style="margin:0">Until<span class="req">*</span></label>
+            <span class="value" id="dur-label">30 days</span>
+          </div>
+          <div class="slider" id="dur-slider" data-kind="dur"></div>
+          <div class="ends"><span>1 hr</span><span>90 days</span></div>
+          <div class="hint" id="dur-hint"></div>
+        </div>
+
+        <fieldset class="field">
+          <legend class="label">Time of day</legend>
+          <div class="seg">
+            <input type="radio" name="todA" id="todA-any" value="any" checked /><label for="todA-any">Any time</label>
+            <input type="radio" name="todA" id="todA-day" value="day" /><label for="todA-day">Daylight</label>
+            <input type="radio" name="todA" id="todA-night" value="night" /><label for="todA-night">Night</label>
+            <input type="radio" name="todA" id="todA-custom" value="custom" /><label for="todA-custom">Hours…</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label class="label" for="a-note">Note</label>
+          <textarea id="a-note" maxlength="280" placeholder="Add context for why you're watching"></textarea>
+          <div class="counter"><span id="a-count">0</span>/280</div>
+        </div>
+
+        <div class="btns">
+          <button class="btn" type="button">Cancel</button>
+          <button class="btn primary" type="button" id="a-save" disabled>Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B -->
+    <div class="col">
+      <div class="eyebrow">Option B — Collect count</div>
+      <div class="modal" id="cardB">
+        <div class="modal-head">
+          <span class="modal-title">Create Watchpoint</span>
+          <button class="x" type="button" aria-label="Close">×</button>
+        </div>
+
+        <div class="field">
+          <label class="label" for="b-entity">Entity type<span class="req">*</span></label>
+          <select id="b-entity" required>
+            <option value="">Select an entity type</option>
+            <option>Road defect</option>
+            <option>Streetlight</option>
+            <option>Signage</option>
+            <option>Graffiti</option>
+            <option>Storm drain</option>
+            <option>Illegal dumping</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="b-name">Name</label>
+          <input type="text" id="b-name" placeholder="Optional name" />
+        </div>
+
+        <div class="field">
+          <label class="label" for="b-freq">Frequency<span class="req">*</span></label>
+          <select id="b-freq">
+            <option value="asap" data-max="3">As soon as possible</option>
+            <option value="15m" data-max="12">15 min</option>
+            <option value="30m" data-max="15">30 min</option>
+            <option value="1h" data-max="18">1 hr</option>
+            <option value="4h" data-max="21">4 hr</option>
+            <option value="12h" data-max="24">12 hr</option>
+            <option value="24h" data-max="26" selected>24 hr</option>
+            <option value="1w" data-max="28">1 week</option>
+            <option value="1mo" data-max="30">1 month</option>
+          </select>
+          <div class="hint" id="b-freq-hint"></div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="b-collect">Collect<span class="req">*</span></label>
+          <select id="b-collect"></select>
+        </div>
+
+        <div class="field">
+          <label class="label" for="b-end">End if not filled by</label>
+          <input type="date" id="b-end" />
+          <div class="hint">No cadence restriction — pick any end date.</div>
+        </div>
+
+        <fieldset class="field">
+          <legend class="label">Time of day</legend>
+          <div class="seg">
+            <input type="radio" name="todB" id="todB-any" value="any" checked /><label for="todB-any">Any time</label>
+            <input type="radio" name="todB" id="todB-day" value="day" /><label for="todB-day">Daylight</label>
+            <input type="radio" name="todB" id="todB-night" value="night" /><label for="todB-night">Night</label>
+            <input type="radio" name="todB" id="todB-custom" value="custom" /><label for="todB-custom">Hours…</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label class="label" for="b-note">Note</label>
+          <textarea id="b-note" maxlength="280" placeholder="Add context for why you're watching"></textarea>
+          <div class="counter"><span id="b-count">0</span>/280</div>
+        </div>
+
+        <div class="btns">
+          <button class="btn" type="button">Cancel</button>
+          <button class="btn primary" type="button" id="b-save" disabled>Save</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const MAX = 60;
+const FREQ_MIN = 5 / 60;
+const FREQ_MAX = 7 * 24;
+const DUR_MIN = 1;
+const DUR_MAX = 90 * 24;
+
+const state = { freqH: 24, durH: 30 * 24 };
+
+function clamp(n, lo, hi) { return Math.min(hi, Math.max(lo, n)); }
+
+function formatHours(hours) {
+  if (hours < 1) {
+    const m = Math.round(hours * 60);
+    return m === 1 ? "1 minute" : m + " minutes";
+  }
+  if (hours < 24) {
+    const h = Math.round(hours * 10) / 10;
+    return h === 1 ? "1 hour" : h + " hours";
+  }
+  const d = Math.round((hours / 24) * 10) / 10;
+  if (Math.abs(d - 7) < 0.05) return "1 week";
+  return d === 1 ? "1 day" : d + " days";
+}
+
+function valueToT(v, min, max) {
+  return clamp(Math.log(v / min) / Math.log(max / min), 0, 1);
+}
+function tToValue(t, min, max) {
+  return min * Math.pow(max / min, clamp(t, 0, 1));
+}
+function maxDur(freq) { return clamp(freq * MAX, DUR_MIN, DUR_MAX); }
+function minFreq(dur) { return clamp(dur / MAX, FREQ_MIN, FREQ_MAX); }
+
+function buildSlider(el) {
+  el.innerHTML =
+    '<div class="track"></div>' +
+    '<div class="track-enabled"></div>' +
+    '<div class="track-fill"></div>' +
+    '<div class="track-disabled left"></div>' +
+    '<div class="track-disabled right"></div>' +
+    '<div class="thumb"></div>';
+}
+
+function paintSlider(el, absMin, absMax, enabledMin, enabledMax, value) {
+  const lo = Math.max(absMin, enabledMin);
+  const hi = Math.min(absMax, enabledMax);
+  const v = clamp(value, lo, hi);
+  const vT = valueToT(v, absMin, absMax);
+  const sT = valueToT(lo, absMin, absMax);
+  const eT = valueToT(hi, absMin, absMax);
+
+  const enabled = el.querySelector(".track-enabled");
+  const fill = el.querySelector(".track-fill");
+  const left = el.querySelector(".track-disabled.left");
+  const right = el.querySelector(".track-disabled.right");
+  const thumb = el.querySelector(".thumb");
+
+  enabled.style.left = (sT * 100) + "%";
+  enabled.style.width = Math.max(0, eT - sT) * 100 + "%";
+  fill.style.left = (sT * 100) + "%";
+  fill.style.width = Math.max(0, vT - sT) * 100 + "%";
+
+  if (sT > 0.002) {
+    left.style.display = "block";
+    left.style.left = "0";
+    left.style.width = (sT * 100) + "%";
+    left.style.borderRadius = "3px 0 0 3px";
+  } else left.style.display = "none";
+
+  if (eT < 0.998) {
+    right.style.display = "block";
+    right.style.left = (eT * 100) + "%";
+    right.style.right = "0";
+    right.style.width = "auto";
+    right.style.borderRadius = "0 3px 3px 0";
+  } else right.style.display = "none";
+
+  thumb.style.left = "calc(" + (vT * 100) + "% - 8px)";
+}
+
+function syncA() {
+  const freqLo = minFreq(state.durH);
+  const durHi = maxDur(state.freqH);
+  state.freqH = clamp(state.freqH, freqLo, FREQ_MAX);
+  state.durH = clamp(state.durH, DUR_MIN, durHi);
+
+  document.getElementById("freq-label").textContent = formatHours(state.freqH);
+  document.getElementById("dur-label").textContent = formatHours(state.durH);
+
+  paintSlider(
+    document.getElementById("freq-slider"),
+    FREQ_MIN, FREQ_MAX, freqLo, FREQ_MAX, state.freqH
+  );
+  paintSlider(
+    document.getElementById("dur-slider"),
+    DUR_MIN, DUR_MAX, DUR_MIN, durHi, state.durH
+  );
+
+  const detections = state.durH / state.freqH;
+  const capped = durHi < DUR_MAX - 0.01;
+  document.getElementById("dur-hint").textContent = capped
+    ? "Longer windows would exceed the 60-observation budget."
+    : ("≈ " + detections.toFixed(0) + " observations at this cadence.");
+}
+
+function bindSlider(el, kind) {
+  buildSlider(el);
+  function setFromX(clientX) {
+    const rect = el.getBoundingClientRect();
+    const t = clamp((clientX - rect.left) / rect.width, 0, 1);
+    if (kind === "freq") {
+      const freqLo = minFreq(state.durH);
+      state.freqH = clamp(tToValue(t, FREQ_MIN, FREQ_MAX), freqLo, FREQ_MAX);
+      state.durH = Math.min(state.durH, maxDur(state.freqH));
+    } else {
+      const durHi = maxDur(state.freqH);
+      state.durH = clamp(tToValue(t, DUR_MIN, DUR_MAX), DUR_MIN, durHi);
+      state.freqH = Math.max(state.freqH, minFreq(state.durH));
+    }
+    syncA();
+  }
+  el.addEventListener("pointerdown", e => {
+    el.setPointerCapture(e.pointerId);
+    setFromX(e.clientX);
+  });
+  el.addEventListener("pointermove", e => {
+    if (e.buttons === 1) setFromX(e.clientX);
+  });
+}
+
+bindSlider(document.getElementById("freq-slider"), "freq");
+bindSlider(document.getElementById("dur-slider"), "dur");
+syncA();
+
+document.getElementById("a-entity").addEventListener("change", e => {
+  document.getElementById("a-save").disabled = !e.target.value;
+});
+document.getElementById("a-note").addEventListener("input", e => {
+  document.getElementById("a-count").textContent = e.target.value.length;
+});
+
+/* Option B */
+const freqSel = document.getElementById("b-freq");
+const collectSel = document.getElementById("b-collect");
+const endInput = document.getElementById("b-end");
+
+function refreshCollect() {
+  const opt = freqSel.selectedOptions[0];
+  const max = Number(opt.dataset.max);
+  const prev = Number(collectSel.value) || 1;
+  collectSel.innerHTML = "";
+  for (let i = 1; i <= max; i++) {
+    const o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = i === 1 ? "1 observation" : i + " observations";
+    collectSel.appendChild(o);
+  }
+  collectSel.value = String(Math.min(prev, max));
+  document.getElementById("b-freq-hint").textContent =
+    "Collect range for this cadence: 1–" + max + ".";
+}
+freqSel.addEventListener("change", refreshCollect);
+refreshCollect();
+
+const d = new Date();
+d.setUTCDate(d.getUTCDate() + 30);
+endInput.value = d.toISOString().slice(0, 10);
+
+document.getElementById("b-entity").addEventListener("change", e => {
+  document.getElementById("b-save").disabled = !e.target.value;
+});
+document.getElementById("b-note").addEventListener("input", e => {
+  document.getElementById("b-count").textContent = e.target.value.length;
+});
+</script>
+</body>
+</html>
