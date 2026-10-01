@@ -128,6 +128,8 @@
     line-height: 1.45;
   }
   .hint b { color: var(--ink-2); }
+  .hint.warn { color: var(--red); font-weight: 600; }
+  .hint[hidden] { display: none; }
   .counter {
     text-align: right;
     font-size: 11.5px;
@@ -347,28 +349,28 @@
         <div class="field">
           <label class="label" for="b-freq">Frequency<span class="req">*</span></label>
           <select id="b-freq">
-            <option value="asap" data-max="3">As soon as possible</option>
-            <option value="15m" data-max="12">15 min</option>
-            <option value="30m" data-max="15">30 min</option>
-            <option value="1h" data-max="18">1 hr</option>
-            <option value="4h" data-max="21">4 hr</option>
-            <option value="12h" data-max="24">12 hr</option>
-            <option value="24h" data-max="26" selected>24 hr</option>
-            <option value="1w" data-max="28">1 week</option>
-            <option value="1mo" data-max="30">1 month</option>
+            <option value="asap" data-max="3" data-hours="0">As soon as possible</option>
+            <option value="15m" data-max="12" data-hours="0.25">15 min</option>
+            <option value="30m" data-max="15" data-hours="0.5">30 min</option>
+            <option value="1h" data-max="18" data-hours="1">1 hr</option>
+            <option value="4h" data-max="21" data-hours="4">4 hr</option>
+            <option value="12h" data-max="24" data-hours="12">12 hr</option>
+            <option value="24h" data-max="26" data-hours="24" selected>24 hr</option>
+            <option value="1w" data-max="28" data-hours="168">1 week</option>
+            <option value="1mo" data-max="30" data-hours="720">1 month</option>
           </select>
-          <div class="hint" id="b-freq-hint"></div>
         </div>
 
         <div class="field">
           <label class="label" for="b-collect">Collect<span class="req">*</span></label>
           <select id="b-collect"></select>
+          <div class="hint" id="b-collect-hint" hidden></div>
         </div>
 
         <div class="field">
           <label class="label" for="b-end">End if not filled by</label>
           <input type="date" id="b-end" />
-          <div class="hint">No cadence restriction — pick any end date.</div>
+          <div class="hint warn" id="b-end-hint" hidden></div>
         </div>
 
         <fieldset class="field">
@@ -539,31 +541,89 @@ document.getElementById("a-note").addEventListener("input", e => {
 });
 
 /* Option B */
+const COLLECT_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 25, 30];
 const freqSel = document.getElementById("b-freq");
 const collectSel = document.getElementById("b-collect");
 const endInput = document.getElementById("b-end");
+const collectHint = document.getElementById("b-collect-hint");
+const endHint = document.getElementById("b-end-hint");
+let collectReducedFrom = null;
 
-function refreshCollect() {
+function stepsUpTo(max) {
+  return COLLECT_STEPS.filter(n => n <= max);
+}
+
+function nearestAtMost(n, max) {
+  const allowed = stepsUpTo(max);
+  const atMost = allowed.filter(s => s <= n);
+  return atMost.length ? atMost[atMost.length - 1] : allowed[0];
+}
+
+function refreshCollect(fromFreqChange) {
   const opt = freqSel.selectedOptions[0];
   const max = Number(opt.dataset.max);
   const prev = Number(collectSel.value) || 1;
+  const allowed = stepsUpTo(max);
   collectSel.innerHTML = "";
-  for (let i = 1; i <= max; i++) {
+  allowed.forEach(n => {
     const o = document.createElement("option");
-    o.value = String(i);
-    o.textContent = i === 1 ? "1 observation" : i + " observations";
+    o.value = String(n);
+    o.textContent = n === 1 ? "1 observation" : n + " observations";
     collectSel.appendChild(o);
+  });
+  if (fromFreqChange && prev > max) {
+    collectReducedFrom = prev;
+    collectSel.value = String(nearestAtMost(prev, max));
+  } else {
+    collectSel.value = String(nearestAtMost(prev, max));
+    if (!fromFreqChange) collectReducedFrom = null;
   }
-  collectSel.value = String(Math.min(prev, max));
-  document.getElementById("b-freq-hint").textContent =
-    "Collect range for this cadence: 1–" + max + ".";
+  if (collectReducedFrom != null) {
+    collectHint.hidden = false;
+    collectHint.textContent =
+      "Reduced from " + collectReducedFrom +
+      " — this frequency allows at most " + max + ".";
+  } else {
+    collectHint.hidden = true;
+    collectHint.textContent = "";
+  }
+  refreshEndHint();
 }
-freqSel.addEventListener("change", refreshCollect);
-refreshCollect();
+
+function refreshEndHint() {
+  const opt = freqSel.selectedOptions[0];
+  const hours = Number(opt.dataset.hours) || 0;
+  const collect = Number(collectSel.value) || 1;
+  if (!endInput.value || hours <= 0) {
+    endHint.hidden = true;
+    return;
+  }
+  const end = new Date(endInput.value + "T23:59:59.999");
+  const hoursLeft = (end.getTime() - Date.now()) / (1000 * 60 * 60);
+  const needed = hours * collect;
+  if (needed > hoursLeft) {
+    endHint.hidden = false;
+    endHint.textContent =
+      "At this cadence, " + collect + " observations need about " +
+      formatHours(needed) + " — later than the end date.";
+  } else {
+    endHint.hidden = true;
+  }
+}
+
+freqSel.addEventListener("change", () => refreshCollect(true));
+collectSel.addEventListener("change", () => {
+  collectReducedFrom = null;
+  collectHint.hidden = true;
+  refreshEndHint();
+});
+endInput.addEventListener("change", refreshEndHint);
+refreshCollect(false);
 
 const d = new Date();
 d.setUTCDate(d.getUTCDate() + 30);
 endInput.value = d.toISOString().slice(0, 10);
+refreshEndHint();
 
 document.getElementById("b-entity").addEventListener("change", e => {
   document.getElementById("b-save").disabled = !e.target.value;
