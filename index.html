@@ -542,12 +542,38 @@ document.getElementById("a-note").addEventListener("input", e => {
 
 /* Option B */
 const COLLECT_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 25, 30];
+const SIX_MO_DAYS = 182;
+const SIX_MO_HOURS = SIX_MO_DAYS * 24;
+const END_BUFFER_HOURS = 24;
 const freqSel = document.getElementById("b-freq");
 const collectSel = document.getElementById("b-collect");
 const endInput = document.getElementById("b-end");
 const collectHint = document.getElementById("b-collect-hint");
 const endHint = document.getElementById("b-end-hint");
 let collectReducedFrom = null;
+
+function toDateInput(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function maxEndDate() {
+  const d = startOfToday();
+  d.setDate(d.getDate() + SIX_MO_DAYS);
+  return d;
+}
+
+function effectiveCollectMax(opt) {
+  const policyMax = Number(opt.dataset.max);
+  const hours = Number(opt.dataset.hours) || 0;
+  if (hours <= 0) return policyMax;
+  return Math.max(1, Math.min(policyMax, Math.floor(SIX_MO_HOURS / hours)));
+}
 
 function stepsUpTo(max) {
   return COLLECT_STEPS.filter(n => n <= max);
@@ -559,9 +585,23 @@ function nearestAtMost(n, max) {
   return atMost.length ? atMost[atMost.length - 1] : allowed[0];
 }
 
+function theoreticalHours(opt, collect) {
+  const hours = Number(opt.dataset.hours) || 0;
+  if (hours <= 0) return END_BUFFER_HOURS * 7;
+  return hours * collect;
+}
+
+function defaultEndFor(opt, collect) {
+  const needed = theoreticalHours(opt, collect);
+  const withBuffer = Math.min(needed + END_BUFFER_HOURS, SIX_MO_HOURS);
+  const d = new Date(Date.now() + withBuffer * 60 * 60 * 1000);
+  const max = maxEndDate();
+  return toDateInput(d > max ? max : d);
+}
+
 function refreshCollect(fromFreqChange) {
   const opt = freqSel.selectedOptions[0];
-  const max = Number(opt.dataset.max);
+  const max = effectiveCollectMax(opt);
   const prev = Number(collectSel.value) || 1;
   const allowed = stepsUpTo(max);
   collectSel.innerHTML = "";
@@ -571,22 +611,29 @@ function refreshCollect(fromFreqChange) {
     o.textContent = n === 1 ? "1 observation" : n + " observations";
     collectSel.appendChild(o);
   });
+  let nextCollect;
   if (fromFreqChange && prev > max) {
     collectReducedFrom = prev;
-    collectSel.value = String(nearestAtMost(prev, max));
+    nextCollect = nearestAtMost(prev, max);
   } else {
-    collectSel.value = String(nearestAtMost(prev, max));
+    nextCollect = nearestAtMost(prev, max);
     if (!fromFreqChange) collectReducedFrom = null;
   }
+  collectSel.value = String(nextCollect);
+
   if (collectReducedFrom != null) {
     collectHint.hidden = false;
     collectHint.textContent =
       "Reduced from " + collectReducedFrom +
-      " — this frequency allows at most " + max + ".";
+      " — at most " + max + " fits this frequency within 6 months.";
   } else {
     collectHint.hidden = true;
     collectHint.textContent = "";
   }
+
+  endInput.min = toDateInput(startOfToday());
+  endInput.max = toDateInput(maxEndDate());
+  endInput.value = defaultEndFor(opt, nextCollect);
   refreshEndHint();
 }
 
@@ -615,15 +662,18 @@ freqSel.addEventListener("change", () => refreshCollect(true));
 collectSel.addEventListener("change", () => {
   collectReducedFrom = null;
   collectHint.hidden = true;
+  const opt = freqSel.selectedOptions[0];
+  endInput.value = defaultEndFor(opt, Number(collectSel.value) || 1);
   refreshEndHint();
 });
-endInput.addEventListener("change", refreshEndHint);
+endInput.addEventListener("change", () => {
+  const min = endInput.min;
+  const max = endInput.max;
+  if (endInput.value > max) endInput.value = max;
+  if (endInput.value < min) endInput.value = min;
+  refreshEndHint();
+});
 refreshCollect(false);
-
-const d = new Date();
-d.setUTCDate(d.getUTCDate() + 30);
-endInput.value = d.toISOString().slice(0, 10);
-refreshEndHint();
 
 document.getElementById("b-entity").addEventListener("change", e => {
   document.getElementById("b-save").disabled = !e.target.value;
